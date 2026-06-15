@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Simulador Dijkstra</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#eef4f8;padding:20px}
+#app{display:flex;flex-direction:column;height:600px;background:linear-gradient(180deg,#f7fbff 0%,#fff 100%);border:1px solid #b7c8d8;border-radius:10px;overflow:hidden;box-shadow:0 12px 30px rgba(28,55,82,.12)}
+#toolbar{display:flex;align-items:center;gap:8px;padding:12px;background:#edf5fb;border-bottom:1px solid #c6d8e6;flex-wrap:wrap}
+.tool-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;font-size:13px;font-weight:600;border:1px solid #8fb4d6;border-bottom-color:#6d9ac0;border-radius:7px;background:linear-gradient(180deg,#ffffff 0%,#dfeef9 100%);color:#1d4f7a;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s,transform .15s}
+.tool-btn:hover{background:linear-gradient(180deg,#ffffff 0%,#cfe5f6 100%);border-color:#4f8fc4;box-shadow:0 3px 10px rgba(28,79,122,.16);transform:translateY(-1px)}
+.tool-btn:active{transform:translateY(0);box-shadow:inset 0 2px 5px rgba(28,79,122,.18)}
+.tool-btn.active{background:linear-gradient(180deg,#2e88c7 0%,#1766a3 100%);border-color:#135586;color:#fff;box-shadow:0 4px 12px rgba(23,102,163,.28)}
+.sep{width:1px;height:28px;background:#b7c8d8}
+#canvas-wrap{flex:1;position:relative;overflow:auto;background:#f9fcff;border-top:1px solid rgba(255,255,255,.65);scrollbar-color:#77a9d2 #e5f0f8;scrollbar-width:thin}
+#canvas-wrap::-webkit-scrollbar{width:10px;height:10px}
+#canvas-wrap::-webkit-scrollbar-track{background:#e5f0f8}
+#canvas-wrap::-webkit-scrollbar-thumb{background:#77a9d2;border:2px solid #e5f0f8;border-radius:999px}
+#cvs{display:block;cursor:crosshair;background:#fff}
+#info{padding:9px 12px;font-size:12px;color:#486174;background:#edf5fb;border-top:1px solid #c6d8e6;min-height:38px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#results{padding:10px 14px;background:#f5f9fc;border-top:1px solid #c6d8e6;font-size:12px;display:none;max-height:130px;overflow-y:auto}
+.result-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #d7e4ee}
+.result-row:last-child{border-bottom:none}
+.dist-badge{min-width:48px;text-align:right;font-weight:600;color:#178BCA}
+.path-str{color:#555}
+.node-lbl{font-weight:600;min-width:70px;color:#1d4f7a}
+#weight-input{width:68px;font-size:13px;padding:6px 8px;border:1px solid #8fb4d6;border-radius:7px;background:#fff;color:#183d5c}
+#weight-input:focus{outline:none;border-color:#2e88c7;box-shadow:0 0 0 3px rgba(46,136,199,.2)}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+  <div id="toolbar">
+    <button class="tool-btn active" id="btn-node" onclick="setMode('node')">Nodo</button>
+    <button class="tool-btn" id="btn-edge" onclick="setMode('edge')">Arco</button>
+    <button class="tool-btn" id="btn-move" onclick="setMode('move')">Mover</button>
+    <button class="tool-btn" id="btn-delete" onclick="setMode('delete')">Eliminar</button>
+
+    <div class="sep"></div>
+
+    <label style="font-size:13px;color:#486174">Peso:</label>
+    <input id="weight-input" type="number" value="1" min="1" max="9999">
+
+    <div class="sep"></div>
+
+    <button class="tool-btn" onclick="runDijkstra()">Ejecutar</button>
+    <button class="tool-btn" onclick="resetGraph()">Limpiar</button>
+    <button class="tool-btn" onclick="loadExample()">Ejemplo</button>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="cvs"></canvas>
+  </div>
+
+  <div id="info">
+    <span id="hint">Haz clic en el lienzo para agregar nodos.</span>
+    <span id="mode-lbl" style="margin-left:auto;font-weight:600;color:#178BCA">Modo: Nodo</span>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+
+let W,H;
+
+function resize(){
+  const w=Math.max(wrap.clientWidth,1050);
+  const h=Math.max(wrap.clientHeight,640);
+
+  W=cvs.width=w*devicePixelRatio;
+  H=cvs.height=h*devicePixelRatio;
+
+  cvs.style.width=w+'px';
+  cvs.style.height=h+'px';
+
+  draw();
+}
+
+new ResizeObserver(resize).observe(wrap);
+
+let nodes=[],edges=[],mode='node',nodeCounter=0;
+let dragging=null,dragOffX=0,dragOffY=0;
+let edgeSrc=null;
+let dijResult=null;
+
+const R=22;
+
+const COLORS={
+  highlight:'#178BCA',
+  start:'#1D9E75',
+  visited:'#E24B4A',
+  path:'#EF9F27',
+  shadow:'rgba(0,0,0,0.08)'
+};
+
+function px(v){return v*devicePixelRatio}
+
+function getTheme(){
+  return{
+    bg:'#ffffff',
+    text:'#1a1a18',
+    muted:'#73726c',
+    border:'#888780'
+  };
+}
+
+function drawArrow(x1,y1,x2,y2,color,weight,isPath,label){
+  const t=getTheme();
+  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+
+  if(len<1)return;
+
+  const ux=dx/len,uy=dy/len;
+  const sx=x1+ux*R*px(1),sy=y1+uy*R*px(1);
+  const ex=x2-ux*(R+6)*px(1),ey=y2-uy*(R+6)*px(1);
+
+  ctx.save();
+  ctx.strokeStyle=color;
+  ctx.lineWidth=isPath?px(2.5):px(1.5);
+  ctx.beginPath();
+  ctx.moveTo(sx,sy);
+  ctx.lineTo(ex,ey);
+  ctx.stroke();
+
+  const angle=Math.atan2(y2-y1,x2-x1);
+
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.translate(ex,ey);
+  ctx.rotate(angle);
+  ctx.moveTo(0,0);
+  ctx.lineTo(-px(10),-px(5));
+  ctx.lineTo(-px(10),px(5));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  const mx=(sx+ex)/2,my=(sy+ey)/2;
+  const lx=mx+(-uy)*px(14),ly=my+ux*px(14);
+
+  ctx.save();
+  ctx.font=`${px(11)}px Arial`;
+  ctx.fillStyle=isPath?COLORS.path:t.muted;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(label,lx,ly);
+  ctx.restore();
+}
+
+function drawNode(n){
+  const t=getTheme();
+  const x=px(n.x),y=px(n.y),r=px(R);
+
+  let fill=t.bg,stroke=t.border,textC=t.text;
+
+  if(dijResult){
+    if(n.id===dijResult.source){
+      fill=COLORS.start;
+      stroke=COLORS.start;
+      textC='#fff';
+    }else if(dijResult.inPath.has(n.id)){
+      fill=COLORS.path;
+      stroke=COLORS.path;
+      textC='#fff';
+    }else if(dijResult.visited.has(n.id)){
+      fill=COLORS.visited;
+      stroke=COLORS.visited;
+      textC='#fff';
+    }
+  }
+
+  if(edgeSrc===n.id){
+    fill='#185FA5';
+    stroke='#185FA5';
+    textC='#fff';
+  }
+
+  ctx.save();
+  ctx.shadowColor=COLORS.shadow;
+  ctx.shadowBlur=px(6);
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fillStyle=fill;
+  ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.strokeStyle=stroke;
+  ctx.lineWidth=px(2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.font=`600 ${px(13)}px Arial`;
+  ctx.fillStyle=textC;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(n.label,x,y);
+  ctx.restore();
+
+  if(dijResult&&dijResult.dist[n.id]!==undefined&&dijResult.dist[n.id]!==Infinity){
+    ctx.save();
+    ctx.font=`${px(10)}px Arial`;
+    ctx.fillStyle=COLORS.highlight;
+    ctx.textAlign='center';
+    ctx.textBaseline='top';
+    ctx.fillText('d='+dijResult.dist[n.id],x,y+px(R)+px(3));
+    ctx.restore();
+  }
+}
+
+function draw(){
+  const t=getTheme();
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=t.bg;
+  ctx.fillRect(0,0,W,H);
+
+  const pathEdges=new Set();
+
+  if(dijResult){
+    for(const nid of dijResult.inPath){
+      const prev=dijResult.prev[nid];
+      if(prev!=null)pathEdges.add(prev+'-'+nid);
+    }
+  }
+
+  for(const e of edges){
+    const a=nodes.find(n=>n.id===e.from);
+    const b=nodes.find(n=>n.id===e.to);
+
+    if(!a||!b)continue;
+
+    const key=e.from+'-'+e.to;
+    const isP=pathEdges.has(key);
+
+    drawArrow(px(a.x),px(a.y),px(b.x),px(b.y),isP?COLORS.path:t.border,e.w,isP,''+e.w);
+  }
+
+  for(const n of nodes)drawNode(n);
+}
+
+function nodeAt(cx,cy){
+  for(let i=nodes.length-1;i>=0;i--){
+    const n=nodes[i];
+    const dx=cx-n.x,dy=cy-n.y;
+
+    if(dx*dx+dy*dy<=R*R)return n;
+  }
+
+  return null;
+}
+
+function clientToCanvas(e){
+  const rect=cvs.getBoundingClientRect();
+
+  return{
+    x:e.clientX-rect.left,
+    y:e.clientY-rect.top
+  };
+}
+
+cvs.onmousedown=e=>{
+  const {x,y}=clientToCanvas(e);
+
+  if(mode==='node'){
+    const lbl=String.fromCharCode(65+nodeCounter%26)+(nodeCounter>=26?Math.floor(nodeCounter/26):'');
+
+    nodes.push({
+      id:nodeCounter++,
+      x,
+      y,
+      label:lbl.length>1?lbl.slice(0,2):lbl
+    });
+
+    dijResult=null;
+    draw();
+  }else if(mode==='edge'){
+    const n=nodeAt(x,y);
+
+    if(n){
+      if(edgeSrc===null){
+        edgeSrc=n.id;
+        setHint('Haz clic en el nodo destino del arco.');
+      }else if(edgeSrc!==n.id){
+        const w=parseInt(document.getElementById('weight-input').value)||1;
+
+        edges.push({
+          from:edgeSrc,
+          to:n.id,
+          w:Math.max(1,w)
+        });
+
+        edgeSrc=null;
+        dijResult=null;
+
+        setHint('Arco agregado. Selecciona el nodo origen del siguiente arco.');
+      }
+    }
+
+    draw();
+  }else if(mode==='move'){
+    const n=nodeAt(x,y);
+
+    if(n){
+      dragging=n;
+      dragOffX=x-n.x;
+      dragOffY=y-n.y;
+    }
+  }else if(mode==='delete'){
+    const n=nodeAt(x,y);
+
+    if(n){
+      nodes=nodes.filter(nn=>nn.id!==n.id);
+      edges=edges.filter(e=>e.from!==n.id&&e.to!==n.id);
+      dijResult=null;
+      draw();
+    }else{
+      let closest=null,minD=20;
+
+      for(const e of edges){
+        const a=nodes.find(nn=>nn.id===e.from);
+        const b=nodes.find(nn=>nn.id===e.to);
+
+        if(!a||!b)continue;
+
+        const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+        const d=Math.sqrt((x-mx)**2+(y-my)**2);
+
+        if(d<minD){
+          minD=d;
+          closest=e;
+        }
+      }
+
+      if(closest){
+        edges=edges.filter(e=>e!==closest);
+        dijResult=null;
+        draw();
+      }
+    }
+  }
+};
+
+cvs.onmousemove=e=>{
+  if(dragging){
+    const {x,y}=clientToCanvas(e);
+
+    dragging.x=x-dragOffX;
+    dragging.y=y-dragOffY;
+
+    draw();
+  }
+};
+
+cvs.onmouseup=()=>{
+  dragging=null;
+};
+
+function setMode(m){
+  mode=m;
+  edgeSrc=null;
+
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+m).classList.add('active');
+
+  const hints={
+    node:'Haz clic en el lienzo para agregar nodos.',
+    edge:'Haz clic en nodo origen, luego en nodo destino.',
+    move:'Arrastra nodos para reposicionarlos.',
+    delete:'Haz clic en un nodo o arco para eliminarlo.'
+  };
+
+  const modes={
+    node:'Nodo',
+    edge:'Arco',
+    move:'Mover',
+    delete:'Eliminar'
+  };
+
+  setHint(hints[m]);
+  document.getElementById('mode-lbl').textContent='Modo: '+modes[m];
+
+  draw();
+}
+
+function setHint(t){
+  document.getElementById('hint').textContent=t;
+}
+
+function runDijkstra(){
+  if(nodes.length<2){
+    setHint('Agrega al menos 2 nodos.');
+    return;
+  }
+
+  const labels=nodes.map(n=>n.label).join(', ');
+  const src=prompt('Nodo inicial ('+labels+'):');
+  const srcLabel=src?.trim().toUpperCase();
+  const srcNode=nodes.find(n=>n.label.toUpperCase()===srcLabel);
+
+  if(!srcNode){
+    setHint('Nodo no encontrado.');
+    return;
+  }
+
+  const dest=prompt('Nodo final opcional ('+labels+'). Deja vacío para calcular a todos:');
+  const destLabel=dest?.trim().toUpperCase();
+  const destNode=destLabel?nodes.find(n=>n.label.toUpperCase()===destLabel):null;
+
+  if(destLabel&&!destNode){
+    setHint('Nodo final no encontrado.');
+    return;
+  }
+
+  const INF=Infinity;
+  const dist={},prev={};
+
+  for(const n of nodes){
+    dist[n.id]=INF;
+    prev[n.id]=null;
+  }
+
+  dist[srcNode.id]=0;
+
+  const unvisited=new Set(nodes.map(n=>n.id));
+
+  while(unvisited.size>0){
+    let u=null;
+
+    for(const id of unvisited){
+      if(u===null||dist[id]<dist[u])u=id;
+    }
+
+    if(dist[u]===INF)break;
+
+    unvisited.delete(u);
+
+    for(const e of edges){
+      if(e.from!==u)continue;
+
+      const alt=dist[u]+e.w;
+
+      if(alt<dist[e.to]){
+        dist[e.to]=alt;
+        prev[e.to]=u;
+      }
+    }
+  }
+
+  const inPath=new Set([srcNode.id]);
+
+  dijResult={
+    source:srcNode.id,
+    dist,
+    prev,
+    visited:new Set(nodes.map(n=>n.id)),
+    inPath
+  };
+
+  function getPathTo(targetId){
+    const path=[];
+    let cur=targetId;
+
+    while(cur!==null&&cur!==undefined){
+      path.unshift(cur);
+      cur=prev[cur];
+    }
+
+    return path;
+  }
+
+  function getPathDetail(path){
+    if(path.length===1)return 'Costo total: 0';
+
+    const parts=[];
+    let total=0;
+
+    for(let i=0;i<path.length-1;i++){
+      const from=path[i];
+      const to=path[i+1];
+      const edge=edges.find(e=>e.from===from&&e.to===to);
+      const fromNode=nodes.find(n=>n.id===from);
+      const toNode=nodes.find(n=>n.id===to);
+
+      if(edge&&fromNode&&toNode){
+        total+=edge.w;
+        parts.push(`${fromNode.label} - ${toNode.label} (${edge.w})`);
+      }
+    }
+
+    return parts.join(' + ')+' = '+total;
+  }
+
+  const targets=destNode?[destNode]:nodes.filter(n=>n.id!==srcNode.id);
+
+  let html='<div style="font-weight:600;margin-bottom:6px;color:#1a1a18">Rutas más cortas desde nodo <span style="color:#1D9E75">'+srcNode.label+'</span></div>';
+
+  for(const n of targets){
+    if(!destNode&&n.id===srcNode.id)continue;
+
+    const d=dist[n.id];
+
+    if(d===INF){
+      html+=`<div class="result-row"><span class="node-lbl">${n.label}</span><span class="dist-badge" style="color:#E24B4A">∞</span><span class="path-str">Sin camino</span></div>`;
+    }else{
+      const path=getPathTo(n.id);
+      const pathLabels=path.map(id=>nodes.find(nn=>nn.id===id)?.label).filter(Boolean);
+
+      for(const id of path)inPath.add(id);
+
+      html+=`<div class="result-row"><span class="node-lbl">${srcNode.label} → ${n.label}</span><span class="dist-badge">${d}</span><span class="path-str">Camino más corto: de ${srcNode.label} a ${n.label}: ${pathLabels.join(' - ')} | ${getPathDetail(path)}</span></div>`;
+    }
+  }
+
+  const res=document.getElementById('results');
+
+  res.innerHTML=html;
+  res.style.display='block';
+
+  draw();
+
+  if(destNode){
+    setHint(
+      dist[destNode.id]===INF
+        ? 'No hay camino desde '+srcNode.label+' hasta '+destNode.label+'.'
+        : 'Camino más corto desde '+srcNode.label+' hasta '+destNode.label+': '+dist[destNode.id]+'.'
+    );
+  }else{
+    setHint('Resultado: '+Object.keys(dist).filter(id=>{
+      const n=nodes.find(x=>x.id==id);
+      return n&&n.id!==srcNode.id&&dist[id]!==INF;
+    }).length+' nodos alcanzados desde '+srcNode.label+'.');
+  }
+}
+
+function resetGraph(){
+  nodes=[];
+  edges=[];
+  nodeCounter=0;
+  dijResult=null;
+  edgeSrc=null;
+
+  document.getElementById('results').style.display='none';
+
+  draw();
+  setHint('Lienzo limpio. Agrega nuevos nodos.');
+}
+
+function loadExample(){
+  resetGraph();
+
+  const W2=wrap.getBoundingClientRect().width;
+  const H2=wrap.getBoundingClientRect().height;
+  const cx2=W2/2;
+  const cy2=H2/2;
+
+  nodes=[
+    {id:0,x:cx2-220,y:cy2,label:'A'},
+    {id:1,x:cx2-80,y:cy2-110,label:'B'},
+    {id:2,x:cx2-80,y:cy2+110,label:'C'},
+    {id:3,x:cx2+80,y:cy2-110,label:'D'},
+    {id:4,x:cx2+80,y:cy2+110,label:'E'},
+    {id:5,x:cx2+220,y:cy2,label:'F'},
+    {id:6,x:cx2,y:cy2,label:'G'}
+  ];
+
+  nodeCounter=7;
+
+  edges=[
+    {from:0,to:1,w:10},{from:0,to:2,w:18},
+    {from:1,to:6,w:6},{from:1,to:4,w:3},
+    {from:2,to:3,w:3},{from:2,to:5,w:20},
+    {from:3,to:2,w:2},{from:3,to:6,w:2},
+    {from:4,to:3,w:6},{from:4,to:6,w:10},
+    {from:6,to:5,w:5},{from:6,to:2,w:10}
+  ];
+
+  dijResult=null;
+
+  document.getElementById('results').style.display='none';
+
+  draw();
+  setHint('Ejemplo cargado. Haz clic en Ejecutar y escribe "A" como nodo inicial.');
+}
+
+window.addEventListener('load',()=>{
+  resize();
+  setHint('Haz clic en el lienzo para agregar nodos.');
+});
+</script>
+
+</body>
+</html>
