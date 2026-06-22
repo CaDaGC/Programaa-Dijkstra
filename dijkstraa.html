@@ -1,600 +1,1462 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Simulador Dijkstra</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Dijkstra para Digrafos</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #182033;
+      --muted: #627089;
+      --line: #d8e0ec;
+      --primary: #1f7aec;
+      --primary-dark: #145bc1;
+      --accent: #00a676;
+      --warn: #f59f00;
+      --danger: #df4759;
+      --violet: #714dd9;
+      --node: #ffffff;
+      --node-border: #1f7aec;
+      --shortest: #00a676;
+      --path: #f59f00;
+      --shadow: 0 16px 40px rgba(24, 32, 51, 0.12);
+    }
 
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#eef4f8;padding:20px}
-#app{display:flex;flex-direction:column;height:600px;background:linear-gradient(180deg,#f7fbff 0%,#fff 100%);border:1px solid #b7c8d8;border-radius:10px;overflow:hidden;box-shadow:0 12px 30px rgba(28,55,82,.12)}
-#toolbar{display:flex;align-items:center;gap:8px;padding:12px;background:#edf5fb;border-bottom:1px solid #c6d8e6;flex-wrap:wrap}
-.tool-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;font-size:13px;font-weight:600;border:1px solid #8fb4d6;border-bottom-color:#6d9ac0;border-radius:7px;background:linear-gradient(180deg,#ffffff 0%,#dfeef9 100%);color:#1d4f7a;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s,transform .15s}
-.tool-btn:hover{background:linear-gradient(180deg,#ffffff 0%,#cfe5f6 100%);border-color:#4f8fc4;box-shadow:0 3px 10px rgba(28,79,122,.16);transform:translateY(-1px)}
-.tool-btn:active{transform:translateY(0);box-shadow:inset 0 2px 5px rgba(28,79,122,.18)}
-.tool-btn.active{background:linear-gradient(180deg,#2e88c7 0%,#1766a3 100%);border-color:#135586;color:#fff;box-shadow:0 4px 12px rgba(23,102,163,.28)}
-.sep{width:1px;height:28px;background:#b7c8d8}
-#canvas-wrap{flex:1;position:relative;overflow:auto;background:#f9fcff;border-top:1px solid rgba(255,255,255,.65);scrollbar-color:#77a9d2 #e5f0f8;scrollbar-width:thin}
-#canvas-wrap::-webkit-scrollbar{width:10px;height:10px}
-#canvas-wrap::-webkit-scrollbar-track{background:#e5f0f8}
-#canvas-wrap::-webkit-scrollbar-thumb{background:#77a9d2;border:2px solid #e5f0f8;border-radius:999px}
-#cvs{display:block;cursor:crosshair;background:#fff}
-#info{padding:9px 12px;font-size:12px;color:#486174;background:#edf5fb;border-top:1px solid #c6d8e6;min-height:38px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-#results{padding:10px 14px;background:#f5f9fc;border-top:1px solid #c6d8e6;font-size:12px;display:none;max-height:130px;overflow-y:auto}
-.result-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #d7e4ee}
-.result-row:last-child{border-bottom:none}
-.dist-badge{min-width:48px;text-align:right;font-weight:600;color:#178BCA}
-.path-str{color:#555}
-.node-lbl{font-weight:600;min-width:70px;color:#1d4f7a}
-#weight-input{width:68px;font-size:13px;padding:6px 8px;border:1px solid #8fb4d6;border-radius:7px;background:#fff;color:#183d5c}
-#weight-input:focus{outline:none;border-color:#2e88c7;box-shadow:0 0 0 3px rgba(46,136,199,.2)}
-</style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(120deg, rgba(31, 122, 236, 0.08), rgba(0, 166, 118, 0.07)),
+        var(--bg);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 22px;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+      z-index: 2;
+    }
+
+    main {
+      display: grid;
+      grid-template-rows: auto minmax(360px, 1fr) minmax(210px, auto);
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+      line-height: 1.1;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .section {
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .section:first-of-type {
+      border-top: 0;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      background: var(--primary);
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      min-height: 42px;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(31, 122, 236, 0.2);
+      background: var(--primary-dark);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+      box-shadow: none;
+    }
+
+    button.secondary {
+      color: var(--primary);
+      background: #eaf2ff;
+      border-color: #bad4ff;
+    }
+
+    button.secondary:hover {
+      background: #dceaff;
+    }
+
+    button.success {
+      background: var(--accent);
+      border-color: #008d65;
+    }
+
+    button.success:hover {
+      background: #008d65;
+    }
+
+    button.warning {
+      background: var(--warn);
+      border-color: #d98900;
+    }
+
+    button.warning:hover {
+      background: #d98900;
+    }
+
+    button.danger {
+      background: var(--danger);
+      border-color: #bd2f40;
+    }
+
+    button.danger:hover {
+      background: #bd2f40;
+    }
+
+    button.active {
+      outline: 3px solid rgba(31, 122, 236, 0.22);
+      border-color: var(--primary-dark);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--ink);
+      background: #fff;
+      min-height: 42px;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 3px solid rgba(31, 122, 236, 0.18);
+      border-color: var(--primary);
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .hint {
+      margin-top: 10px;
+      padding: 10px;
+      border-left: 4px solid var(--primary);
+      border-radius: 6px;
+      color: var(--muted);
+      background: #eef5ff;
+      font-size: 0.92rem;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(10px);
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      margin: 18px;
+      min-height: 420px;
+      overflow: hidden;
+      border: 2px solid #c7d2e3;
+      border-radius: 8px;
+      background:
+        linear-gradient(#e8eef7 1px, transparent 1px),
+        linear-gradient(90deg, #e8eef7 1px, transparent 1px),
+        #fbfdff;
+      background-size: 28px 28px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    svg.placing-node {
+      cursor: copy;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      color: var(--muted);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .arc-line {
+      stroke: #4c5b73;
+      stroke-width: 3;
+      fill: none;
+      cursor: pointer;
+    }
+
+    .arc-line.path {
+      stroke: var(--path);
+      stroke-width: 5;
+    }
+
+    .arc-line.shortest {
+      stroke: var(--shortest);
+      stroke-width: 6;
+    }
+
+    .arc-line.selected {
+      stroke: var(--violet);
+      stroke-width: 6;
+    }
+
+    .arc-hit {
+      stroke: transparent;
+      stroke-width: 18;
+      fill: none;
+      cursor: pointer;
+    }
+
+    .weight-bg {
+      fill: #fff;
+      stroke: var(--line);
+      stroke-width: 1;
+    }
+
+    .weight-text {
+      fill: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .node circle {
+      fill: var(--node);
+      stroke: var(--node-border);
+      stroke-width: 3;
+      filter: drop-shadow(0 6px 10px rgba(24, 32, 51, 0.16));
+      cursor: grab;
+    }
+
+    .node.selected circle {
+      stroke: var(--violet);
+      stroke-width: 5;
+    }
+
+    .node.path circle {
+      stroke: var(--path);
+      stroke-width: 5;
+    }
+
+    .node.shortest circle {
+      fill: #ecfff8;
+      stroke: var(--shortest);
+      stroke-width: 5;
+    }
+
+    .node text {
+      fill: var(--ink);
+      font-size: 17px;
+      font-weight: 800;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+
+    .results {
+      margin: 0 18px 18px;
+      padding: 16px;
+      max-height: 360px;
+      overflow: auto;
+      border: 2px solid #c7d2e3;
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .result-group {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .result-group:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .path-item {
+      display: grid;
+      gap: 5px;
+      margin: 8px 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      cursor: pointer;
+    }
+
+    .path-item:hover {
+      border-color: var(--primary);
+    }
+
+    .path-item.shortest {
+      border: 2px solid var(--shortest);
+      background: #edfff8;
+    }
+
+    .path-title {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 800;
+    }
+
+    .path-detail {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.35;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(24, 32, 51, 0.45);
+      z-index: 10;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      width: min(430px, 100%);
+      padding: 20px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    .two-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      main {
+        grid-template-rows: auto minmax(420px, 58vh) auto;
+      }
+
+      .toolbar {
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        overflow-x: auto;
+      }
+    }
+
+    @media (max-width: 650px) {
+      aside,
+      .topbar {
+        padding: 16px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .badge-row {
+        justify-content: flex-start;
+      }
+
+      .toolbar,
+      .two-buttons {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-wrap,
+      .results {
+        margin: 12px;
+      }
+
+      .canvas-wrap,
+      svg {
+        min-height: 390px;
+      }
+
+      .modal-actions {
+        flex-direction: column-reverse;
+      }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="app">
+    <aside>
+      <h1>Simulador de Dijkstra</h1>
+      <p>Dibuja un dígrafo, asigna pesos a cada arco y calcula caminos mínimos desde un nodo inicial.</p>
 
-<div id="app">
-  <div id="toolbar">
-    <button class="tool-btn active" id="btn-node" onclick="setMode('node')">Nodo</button>
-    <button class="tool-btn" id="btn-edge" onclick="setMode('edge')">Arco</button>
-    <button class="tool-btn" id="btn-move" onclick="setMode('move')">Mover</button>
-    <button class="tool-btn" id="btn-delete" onclick="setMode('delete')">Eliminar</button>
+      <div class="section">
+        <h2>Construcción del dígrafo</h2>
+        <div class="toolbar">
+          <button id="addNodeBtn" type="button">Agregar nodo</button>
+          <button id="modeArc" class="warning" type="button">Agregar arco</button>
+          <button id="undoBtn" class="secondary" type="button">Deshacer</button>
+          <button id="clearGraph" class="danger" type="button">Limpiar</button>
+        </div>
+        <div class="form-grid" style="margin-top: 12px;">
+          <div>
+            <label for="newArcWeight">Peso para nuevos arcos</label>
+            <input id="newArcWeight" type="number" min="0" step="0.01" value="1">
+          </div>
+        </div>
+        <div id="modeHint" class="hint">Haz clic en un nodo o arco para seleccionarlo. Para crear un arco, pulsa “Agregar arco”, elige origen y destino, y se usará el peso del panel.</div>
+      </div>
 
-    <div class="sep"></div>
+      <div class="section">
+        <h2>Elemento seleccionado</h2>
+        <div id="selectionPanel" class="form-grid">
+          <p class="small">No hay selección. Puedes arrastrar nodos directamente o hacer clic en cualquier nodo/arco para editarlo aquí.</p>
+        </div>
+      </div>
 
-    <label style="font-size:13px;color:#486174">Peso:</label>
-    <input id="weight-input" type="number" value="1" min="1" max="9999">
+      <div class="section">
+        <h2>Calcular Dijkstra</h2>
+        <div class="form-grid">
+          <div>
+            <label for="startNode">Nodo inicial</label>
+            <select id="startNode"></select>
+          </div>
+          <div>
+            <label for="endNode">Nodo final opcional</label>
+            <select id="endNode"></select>
+          </div>
+          <button id="runDijkstra" class="success" type="button">Calcular camino mínimo</button>
+        </div>
+        <p class="hint">Si no eliges nodo final, el simulador calculará el camino más corto desde el origen hacia todos los nodos alcanzables.</p>
+      </div>
 
-    <div class="sep"></div>
+      <div class="section">
+        <h2>Edición rápida</h2>
+        <p class="small">La edición no abre ventanas: selecciona el elemento y cambia sus datos desde este panel. Los pesos deben ser cero o positivos.</p>
+      </div>
+    </aside>
 
-    <button class="tool-btn" onclick="runDijkstra()">Ejecutar</button>
-    <button class="tool-btn" onclick="resetGraph()">Limpiar</button>
-    <button class="tool-btn" onclick="loadExample()">Ejemplo</button>
+    <main>
+      <div class="topbar">
+        <div>
+          <strong>Área de dibujo</strong>
+          <p class="small">Los arcos son dirigidos y muestran flecha hacia el destino.</p>
+        </div>
+        <div class="badge-row">
+          <span class="badge" id="nodeCount">0 nodos</span>
+          <span class="badge" id="arcCount">0 arcos</span>
+          <span class="badge" id="selectedInfo">Sin selección</span>
+        </div>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <svg id="graph" aria-label="Lienzo del dígrafo">
+          <defs>
+            <marker id="arrow" markerWidth="13" markerHeight="13" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4c5b73"></path>
+            </marker>
+            <marker id="arrowPath" markerWidth="13" markerHeight="13" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59f00"></path>
+            </marker>
+            <marker id="arrowShortest" markerWidth="13" markerHeight="13" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#00a676"></path>
+            </marker>
+          </defs>
+          <g id="arcsLayer"></g>
+          <g id="nodesLayer"></g>
+        </svg>
+        <div id="emptyState" class="empty-state">
+          <div>
+            <strong>Empieza agregando nodos</strong>
+            <p>Pulsa “Agregar nodo” para colocarlo en el lienzo.</p>
+          </div>
+        </div>
+      </div>
+
+      <section class="results">
+        <h2>Resultados</h2>
+        <div id="resultsBody">
+          <p>Cuando ejecutes Dijkstra, aquí aparecerán todos los caminos existentes y se resaltará el camino más corto con su peso total.</p>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <div id="canvas-wrap">
-    <canvas id="cvs"></canvas>
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle">Editar</h2>
+      <div id="modalBody"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
   </div>
 
-  <div id="info">
-    <span id="hint">Haz clic en el lienzo para agregar nodos.</span>
-    <span id="mode-lbl" style="margin-left:auto;font-weight:600;color:#178BCA">Modo: Nodo</span>
-  </div>
+  <script>
+    const svg = document.getElementById("graph");
+    const canvasWrap = document.getElementById("canvasWrap");
+    const arcsLayer = document.getElementById("arcsLayer");
+    const nodesLayer = document.getElementById("nodesLayer");
+    const emptyState = document.getElementById("emptyState");
+    const nodeCount = document.getElementById("nodeCount");
+    const arcCount = document.getElementById("arcCount");
+    const selectedInfo = document.getElementById("selectedInfo");
+    const startNodeSelect = document.getElementById("startNode");
+    const endNodeSelect = document.getElementById("endNode");
+    const resultsBody = document.getElementById("resultsBody");
+    const modeHint = document.getElementById("modeHint");
+    const selectionPanel = document.getElementById("selectionPanel");
+    const newArcWeight = document.getElementById("newArcWeight");
+    const addNodeBtn = document.getElementById("addNodeBtn");
+    const arcButton = document.getElementById("modeArc");
+    const undoBtn = document.getElementById("undoBtn");
 
-  <div id="results"></div>
-</div>
+    let nodes = [];
+    let arcs = [];
+    let mode = "select";
+    let nextNodeNumber = 1;
+    let arcStartNodeId = null;
+    let selected = null;
+    let highlightedPath = null;
+    let dragging = null;
+    let history = [];
 
-<script>
-const cvs = document.getElementById('cvs');
-const ctx = cvs.getContext('2d');
-const wrap = document.getElementById('canvas-wrap');
+    const radius = 26;
 
-let W,H;
+    const DEFAULT_HINT = "Haz clic en un nodo o arco para seleccionarlo. Para crear un arco, pulsa “Agregar arco”, elige origen y destino, y se usará el peso del panel.";
 
-function resize(){
-  const w=Math.max(wrap.clientWidth,1050);
-  const h=Math.max(wrap.clientHeight,640);
+    addNodeBtn.addEventListener("click", toggleNodePlacementMode);
+    arcButton.addEventListener("click", toggleArcMode);
+    undoBtn.addEventListener("click", undoLastChange);
+    document.getElementById("clearGraph").addEventListener("click", clearGraph);
+    document.getElementById("runDijkstra").addEventListener("click", runDijkstra);
 
-  W=cvs.width=w*devicePixelRatio;
-  H=cvs.height=h*devicePixelRatio;
-
-  cvs.style.width=w+'px';
-  cvs.style.height=h+'px';
-
-  draw();
-}
-
-new ResizeObserver(resize).observe(wrap);
-
-let nodes=[],edges=[],mode='node',nodeCounter=0;
-let dragging=null,dragOffX=0,dragOffY=0;
-let edgeSrc=null;
-let dijResult=null;
-
-const R=22;
-
-const COLORS={
-  highlight:'#178BCA',
-  start:'#1D9E75',
-  visited:'#E24B4A',
-  path:'#EF9F27',
-  shadow:'rgba(0,0,0,0.08)'
-};
-
-function px(v){return v*devicePixelRatio}
-
-function getTheme(){
-  return{
-    bg:'#ffffff',
-    text:'#1a1a18',
-    muted:'#73726c',
-    border:'#888780'
-  };
-}
-
-function drawArrow(x1,y1,x2,y2,color,weight,isPath,label){
-  const t=getTheme();
-  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
-
-  if(len<1)return;
-
-  const ux=dx/len,uy=dy/len;
-  const sx=x1+ux*R*px(1),sy=y1+uy*R*px(1);
-  const ex=x2-ux*(R+6)*px(1),ey=y2-uy*(R+6)*px(1);
-
-  ctx.save();
-  ctx.strokeStyle=color;
-  ctx.lineWidth=isPath?px(2.5):px(1.5);
-  ctx.beginPath();
-  ctx.moveTo(sx,sy);
-  ctx.lineTo(ex,ey);
-  ctx.stroke();
-
-  const angle=Math.atan2(y2-y1,x2-x1);
-
-  ctx.fillStyle=color;
-  ctx.beginPath();
-  ctx.translate(ex,ey);
-  ctx.rotate(angle);
-  ctx.moveTo(0,0);
-  ctx.lineTo(-px(10),-px(5));
-  ctx.lineTo(-px(10),px(5));
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  const mx=(sx+ex)/2,my=(sy+ey)/2;
-  const lx=mx+(-uy)*px(14),ly=my+ux*px(14);
-
-  ctx.save();
-  ctx.font=`${px(11)}px Arial`;
-  ctx.fillStyle=isPath?COLORS.path:t.muted;
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.fillText(label,lx,ly);
-  ctx.restore();
-}
-
-function drawNode(n){
-  const t=getTheme();
-  const x=px(n.x),y=px(n.y),r=px(R);
-
-  let fill=t.bg,stroke=t.border,textC=t.text;
-
-  if(dijResult){
-    if(n.id===dijResult.source){
-      fill=COLORS.start;
-      stroke=COLORS.start;
-      textC='#fff';
-    }else if(dijResult.inPath.has(n.id)){
-      fill=COLORS.path;
-      stroke=COLORS.path;
-      textC='#fff';
-    }else if(dijResult.visited.has(n.id)){
-      fill=COLORS.visited;
-      stroke=COLORS.visited;
-      textC='#fff';
-    }
-  }
-
-  if(edgeSrc===n.id){
-    fill='#185FA5';
-    stroke='#185FA5';
-    textC='#fff';
-  }
-
-  ctx.save();
-  ctx.shadowColor=COLORS.shadow;
-  ctx.shadowBlur=px(6);
-  ctx.beginPath();
-  ctx.arc(x,y,r,0,Math.PI*2);
-  ctx.fillStyle=fill;
-  ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.strokeStyle=stroke;
-  ctx.lineWidth=px(2);
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  ctx.font=`600 ${px(13)}px Arial`;
-  ctx.fillStyle=textC;
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.fillText(n.label,x,y);
-  ctx.restore();
-
-  if(dijResult&&dijResult.dist[n.id]!==undefined&&dijResult.dist[n.id]!==Infinity){
-    ctx.save();
-    ctx.font=`${px(10)}px Arial`;
-    ctx.fillStyle=COLORS.highlight;
-    ctx.textAlign='center';
-    ctx.textBaseline='top';
-    ctx.fillText('d='+dijResult.dist[n.id],x,y+px(R)+px(3));
-    ctx.restore();
-  }
-}
-
-function draw(){
-  const t=getTheme();
-
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle=t.bg;
-  ctx.fillRect(0,0,W,H);
-
-  const pathEdges=new Set();
-
-  if(dijResult){
-    for(const nid of dijResult.inPath){
-      const prev=dijResult.prev[nid];
-      if(prev!=null)pathEdges.add(prev+'-'+nid);
-    }
-  }
-
-  for(const e of edges){
-    const a=nodes.find(n=>n.id===e.from);
-    const b=nodes.find(n=>n.id===e.to);
-
-    if(!a||!b)continue;
-
-    const key=e.from+'-'+e.to;
-    const isP=pathEdges.has(key);
-
-    drawArrow(px(a.x),px(a.y),px(b.x),px(b.y),isP?COLORS.path:t.border,e.w,isP,''+e.w);
-  }
-
-  for(const n of nodes)drawNode(n);
-}
-
-function nodeAt(cx,cy){
-  for(let i=nodes.length-1;i>=0;i--){
-    const n=nodes[i];
-    const dx=cx-n.x,dy=cy-n.y;
-
-    if(dx*dx+dy*dy<=R*R)return n;
-  }
-
-  return null;
-}
-
-function clientToCanvas(e){
-  const rect=cvs.getBoundingClientRect();
-
-  return{
-    x:e.clientX-rect.left,
-    y:e.clientY-rect.top
-  };
-}
-
-cvs.onmousedown=e=>{
-  const {x,y}=clientToCanvas(e);
-
-  if(mode==='node'){
-    const lbl=String.fromCharCode(65+nodeCounter%26)+(nodeCounter>=26?Math.floor(nodeCounter/26):'');
-
-    nodes.push({
-      id:nodeCounter++,
-      x,
-      y,
-      label:lbl.length>1?lbl.slice(0,2):lbl
+    svg.addEventListener("click", event => {
+      if (mode === "place-node") {
+        const point = getSvgPoint(event);
+        addNode(point.x, point.y, true);
+        return;
+      }
+      if (event.target.closest(".node") || event.target.closest(".arc-group")) return;
+      clearSelection();
     });
 
-    dijResult=null;
-    draw();
-  }else if(mode==='edge'){
-    const n=nodeAt(x,y);
+    svg.addEventListener("pointermove", moveDraggedNode);
+    svg.addEventListener("pointerup", finishDraggingNode);
+    svg.addEventListener("pointercancel", finishDraggingNode);
+    svg.addEventListener("pointerleave", finishDraggingNode);
 
-    if(n){
-      if(edgeSrc===null){
-        edgeSrc=n.id;
-        setHint('Haz clic en el nodo destino del arco.');
-      }else if(edgeSrc!==n.id){
-        const w=parseInt(document.getElementById('weight-input').value)||1;
+    window.addEventListener("resize", renderGraph);
 
-        edges.push({
-          from:edgeSrc,
-          to:n.id,
-          w:Math.max(1,w)
+    function toggleNodePlacementMode() {
+      mode = mode === "place-node" ? "select" : "place-node";
+      arcStartNodeId = null;
+      addNodeBtn.classList.toggle("active", mode === "place-node");
+      arcButton.classList.remove("active");
+      svg.classList.toggle("placing-node", mode === "place-node");
+      modeHint.textContent = mode === "place-node"
+        ? "Modo agregar nodo activo: haz clic en el lienzo en el lugar donde quieres colocar el nuevo nodo."
+        : DEFAULT_HINT;
+      renderGraph();
+    }
+
+    function toggleArcMode() {
+      mode = mode === "arc" ? "select" : "arc";
+      arcStartNodeId = null;
+      addNodeBtn.classList.remove("active");
+      svg.classList.remove("placing-node");
+      arcButton.classList.toggle("active", mode === "arc");
+      modeHint.textContent = mode === "arc"
+        ? "Modo arco activo: haz clic en el nodo origen y luego en el nodo destino. Se usará el peso escrito en el panel."
+        : DEFAULT_HINT;
+      renderGraph();
+    }
+
+    function getSvgPoint(event) {
+      const point = svg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      return point.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    function addNode(x, y, saveChange = true) {
+      if (saveChange) pushHistory();
+      const label = String(nextNodeNumber++);
+      nodes.push({
+        id: crypto.randomUUID(),
+        label,
+        x: clamp(x, radius + 8, svg.clientWidth - radius - 8),
+        y: clamp(y, radius + 8, svg.clientHeight - radius - 8)
+      });
+      highlightedPath = null;
+      renderAll();
+    }
+
+    function addArc(from, to, weight, saveChange = true) {
+      if (saveChange) pushHistory();
+      arcs.push({
+        id: crypto.randomUUID(),
+        from,
+        to,
+        weight: Number(weight)
+      });
+      highlightedPath = null;
+      renderAll();
+    }
+
+    function clearGraph() {
+      if (!nodes.length && !arcs.length) return;
+      if (!confirm("¿Deseas borrar todo el dígrafo?")) return;
+      pushHistory();
+      nodes = [];
+      arcs = [];
+      nextNodeNumber = 1;
+      selected = null;
+      highlightedPath = null;
+      arcStartNodeId = null;
+      resultsBody.innerHTML = "<p>El dígrafo fue limpiado. Agrega nodos y arcos para ejecutar Dijkstra.</p>";
+      renderAll();
+    }
+
+    function pushHistory() {
+      history.push({
+        nodes: structuredClone(nodes),
+        arcs: structuredClone(arcs),
+        nextNodeNumber,
+        selected: selected ? { ...selected } : null,
+        highlightedPath: highlightedPath ? [...highlightedPath] : null
+      });
+      if (history.length > 80) history.shift();
+      updateUndoButton();
+    }
+
+    function undoLastChange() {
+      const previous = history.pop();
+      if (!previous) return;
+      nodes = previous.nodes;
+      arcs = previous.arcs;
+      nextNodeNumber = previous.nextNodeNumber;
+      selected = previous.selected;
+      highlightedPath = previous.highlightedPath;
+      arcStartNodeId = null;
+      mode = "select";
+      addNodeBtn.classList.remove("active");
+      svg.classList.remove("placing-node");
+      arcButton.classList.remove("active");
+      modeHint.textContent = "Cambio revertido. Puedes seleccionar, mover o seguir editando el dígrafo.";
+      renderAll();
+    }
+
+    function updateUndoButton() {
+      undoBtn.disabled = !history.length;
+      undoBtn.textContent = history.length ? `Deshacer (${history.length})` : "Deshacer";
+    }
+
+    function renderAll() {
+      renderGraph();
+      updateControls();
+      updateSelectionPanel();
+      updateUndoButton();
+    }
+
+    function renderGraph() {
+      arcsLayer.innerHTML = "";
+      nodesLayer.innerHTML = "";
+      emptyState.style.display = nodes.length ? "none" : "grid";
+      renderArcs();
+      renderNodes();
+      updateBadges();
+    }
+
+    function renderArcs() {
+      arcs.forEach(arc => {
+        const from = findNode(arc.from);
+        const to = findNode(arc.to);
+        if (!from || !to) return;
+        const geom = getArcGeometry(from, to);
+        const state = getArcState(arc);
+        const marker = state === "shortest" ? "url(#arrowShortest)" : state === "path" ? "url(#arrowPath)" : "url(#arrow)";
+
+        const group = makeSvg("g", { class: "arc-group", "data-id": arc.id });
+        const hit = makeSvg("line", {
+          class: "arc-hit",
+          x1: geom.x1,
+          y1: geom.y1,
+          x2: geom.x2,
+          y2: geom.y2
+        });
+        const line = makeSvg("line", {
+          class: `arc-line ${state}`,
+          x1: geom.x1,
+          y1: geom.y1,
+          x2: geom.x2,
+          y2: geom.y2,
+          "marker-end": marker
+        });
+        const weightGroup = makeSvg("g", { class: "weight-group" });
+        const label = `${arc.weight}`;
+        const width = Math.max(34, label.length * 9 + 18);
+        const bg = makeSvg("rect", {
+          class: "weight-bg",
+          x: geom.mx - width / 2,
+          y: geom.my - 14,
+          width,
+          height: 28,
+          rx: 8
+        });
+        const text = makeSvg("text", {
+          class: "weight-text",
+          x: geom.mx,
+          y: geom.my + 5,
+          "text-anchor": "middle"
+        });
+        text.textContent = label;
+        weightGroup.append(bg, text);
+        group.append(hit, line, weightGroup);
+        group.addEventListener("click", event => {
+          event.stopPropagation();
+          selected = { type: "arc", id: arc.id };
+          selectedInfo.textContent = `Arco ${from.label} -> ${to.label}`;
+          mode = "select";
+          arcStartNodeId = null;
+          addNodeBtn.classList.remove("active");
+          svg.classList.remove("placing-node");
+          arcButton.classList.remove("active");
+          updateSelectionPanel();
+          renderGraph();
+        });
+        arcsLayer.append(group);
+      });
+    }
+
+    function renderNodes() {
+      nodes.forEach(node => {
+        const group = makeSvg("g", {
+          class: `node ${getNodeState(node)} ${arcStartNodeId === node.id ? "selected" : ""}`,
+          transform: `translate(${node.x}, ${node.y})`,
+          "data-id": node.id
+        });
+        const circle = makeSvg("circle", { r: radius });
+        const text = makeSvg("text", { y: 1 });
+        text.textContent = node.label;
+        group.append(circle, text);
+
+        group.addEventListener("pointerdown", event => {
+          if (mode === "arc" || mode === "place-node") return;
+          event.preventDefault();
+          event.stopPropagation();
+          const point = getSvgPoint(event);
+          selected = { type: "node", id: node.id };
+          dragging = {
+            id: node.id,
+            startX: point.x,
+            startY: point.y,
+            nodeX: node.x,
+            nodeY: node.y,
+            before: {
+              nodes: structuredClone(nodes),
+              arcs: structuredClone(arcs),
+              nextNodeNumber,
+              selected: selected ? { ...selected } : null,
+              highlightedPath: highlightedPath ? [...highlightedPath] : null
+            },
+            moved: false
+          };
+          highlightedPath = null;
+          updateSelectionPanel();
+          renderGraph();
         });
 
-        edgeSrc=null;
-        dijResult=null;
+        group.addEventListener("click", event => {
+          event.stopPropagation();
+          if (mode === "place-node") return;
+          if (!dragging) handleNodeClick(node.id);
+        });
+        nodesLayer.append(group);
+      });
+    }
 
-        setHint('Arco agregado. Selecciona el nodo origen del siguiente arco.');
+    function moveDraggedNode(event) {
+      if (!dragging) return;
+      event.preventDefault();
+      const node = findNode(dragging.id);
+      if (!node) return;
+      const point = getSvgPoint(event);
+      const dx = point.x - dragging.startX;
+      const dy = point.y - dragging.startY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) dragging.moved = true;
+      node.x = clamp(dragging.nodeX + dx, radius + 8, svg.clientWidth - radius - 8);
+      node.y = clamp(dragging.nodeY + dy, radius + 8, svg.clientHeight - radius - 8);
+      highlightedPath = null;
+      renderGraph();
+    }
+
+    function finishDraggingNode() {
+      if (!dragging) return;
+      if (dragging.moved) {
+        history.push(dragging.before);
+        if (history.length > 80) history.shift();
       }
+      dragging = null;
+      renderAll();
     }
 
-    draw();
-  }else if(mode==='move'){
-    const n=nodeAt(x,y);
+    function handleNodeClick(nodeId) {
+      const node = findNode(nodeId);
+      if (!node) return;
+      if (mode === "arc") {
+        if (!arcStartNodeId) {
+          arcStartNodeId = nodeId;
+          selectedInfo.textContent = `Origen: ${node.label}`;
+          renderGraph();
+          return;
+        }
+        const from = findNode(arcStartNodeId);
+        const to = node;
+        const weight = readWeight("newArcWeight");
+        if (weight === null) return;
+        addArc(from.id, to.id, weight);
+        selected = { type: "arc", id: arcs[arcs.length - 1].id };
+        arcStartNodeId = null;
+        modeHint.textContent = `Arco ${from.label} -> ${to.label} creado con peso ${formatNumber(weight)}. Modo arco activo: elige otro origen y destino, o pulsa “Agregar arco” para desactivarlo.`;
+        renderGraph();
+        return;
+      }
 
-    if(n){
-      dragging=n;
-      dragOffX=x-n.x;
-      dragOffY=y-n.y;
+      selected = { type: "node", id: nodeId };
+      selectedInfo.textContent = `Nodo ${node.label}`;
+      updateSelectionPanel();
+      renderGraph();
     }
-  }else if(mode==='delete'){
-    const n=nodeAt(x,y);
 
-    if(n){
-      nodes=nodes.filter(nn=>nn.id!==n.id);
-      edges=edges.filter(e=>e.from!==n.id&&e.to!==n.id);
-      dijResult=null;
-      draw();
-    }else{
-      let closest=null,minD=20;
+    function updateControls() {
+      const options = nodes.map(node => `<option value="${node.id}">${escapeHtml(node.label)}</option>`).join("");
+      startNodeSelect.innerHTML = nodes.length ? options : "<option value=''>Sin nodos</option>";
+      endNodeSelect.innerHTML = `<option value="">Todos los nodos</option>${options}`;
+      startNodeSelect.disabled = !nodes.length;
+      endNodeSelect.disabled = !nodes.length;
+    }
 
-      for(const e of edges){
-        const a=nodes.find(nn=>nn.id===e.from);
-        const b=nodes.find(nn=>nn.id===e.to);
+    function updateBadges() {
+      nodeCount.textContent = `${nodes.length} ${nodes.length === 1 ? "nodo" : "nodos"}`;
+      arcCount.textContent = `${arcs.length} ${arcs.length === 1 ? "arco" : "arcos"}`;
+      if (!selected && !arcStartNodeId) selectedInfo.textContent = "Sin selección";
+    }
 
-        if(!a||!b)continue;
+    function updateSelectionPanel() {
+      if (!selected) {
+        selectionPanel.innerHTML = '<p class="small">No hay selección. Puedes arrastrar nodos directamente o hacer clic en cualquier nodo/arco para editarlo aquí.</p>';
+        return;
+      }
 
-        const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
-        const d=Math.sqrt((x-mx)**2+(y-my)**2);
+      if (selected.type === "node") {
+        const node = findNode(selected.id);
+        if (!node) {
+          selected = null;
+          updateSelectionPanel();
+          return;
+        }
+        selectionPanel.innerHTML = `
+          <div>
+            <label for="selectedNodeName">Nombre del nodo</label>
+            <input id="selectedNodeName" value="${escapeAttribute(node.label)}" maxlength="18">
+          </div>
+          <div class="two-buttons">
+            <button id="saveSelection" class="success" type="button">Guardar</button>
+            <button id="deleteSelection" class="danger" type="button">Eliminar</button>
+          </div>
+        `;
+        document.getElementById("saveSelection").addEventListener("click", saveSelectedNode);
+        document.getElementById("deleteSelection").addEventListener("click", () => deleteNode(node.id));
+        selectedInfo.textContent = `Nodo ${node.label}`;
+        return;
+      }
 
-        if(d<minD){
-          minD=d;
-          closest=e;
+      const arc = arcs.find(item => item.id === selected.id);
+      if (!arc) {
+        selected = null;
+        updateSelectionPanel();
+        return;
+      }
+      const from = findNode(arc.from);
+      const to = findNode(arc.to);
+      const options = nodes.map(node => `<option value="${node.id}">${escapeHtml(node.label)}</option>`).join("");
+      selectionPanel.innerHTML = `
+        <div>
+          <label for="selectedArcFrom">Nodo origen</label>
+          <select id="selectedArcFrom">${options}</select>
+        </div>
+        <div>
+          <label for="selectedArcTo">Nodo destino</label>
+          <select id="selectedArcTo">${options}</select>
+        </div>
+        <div>
+          <label for="selectedArcWeight">Peso del arco</label>
+          <input id="selectedArcWeight" type="number" min="0" step="0.01" value="${arc.weight}">
+        </div>
+        <div class="two-buttons">
+          <button id="saveSelection" class="success" type="button">Guardar</button>
+          <button id="deleteSelection" class="danger" type="button">Eliminar</button>
+        </div>
+      `;
+      document.getElementById("selectedArcFrom").value = arc.from;
+      document.getElementById("selectedArcTo").value = arc.to;
+      document.getElementById("saveSelection").addEventListener("click", saveSelectedArc);
+      document.getElementById("deleteSelection").addEventListener("click", () => deleteArc(arc.id));
+      selectedInfo.textContent = `Arco ${from ? from.label : "?"} -> ${to ? to.label : "?"}`;
+    }
+
+    function saveSelectedNode() {
+      if (!selected || selected.type !== "node") return;
+      const node = findNode(selected.id);
+      if (!node) return;
+      const value = document.getElementById("selectedNodeName").value.trim();
+      if (!value) return alert("El nombre del nodo no puede estar vacío.");
+      if (value === node.label) return;
+      pushHistory();
+      node.label = value;
+      highlightedPath = null;
+      renderAll();
+    }
+
+    function saveSelectedArc() {
+      if (!selected || selected.type !== "arc") return;
+      const arc = arcs.find(item => item.id === selected.id);
+      if (!arc) return;
+      const weight = readWeight("selectedArcWeight");
+      if (weight === null) return;
+      const from = document.getElementById("selectedArcFrom").value;
+      const to = document.getElementById("selectedArcTo").value;
+      if (from === arc.from && to === arc.to && weight === arc.weight) return;
+      pushHistory();
+      arc.from = from;
+      arc.to = to;
+      arc.weight = weight;
+      highlightedPath = null;
+      renderAll();
+    }
+
+    function openNodeModal(nodeId) {
+      const node = findNode(nodeId);
+      if (!node) return;
+      openModal("Editar nodo", `
+        <div class="form-grid">
+          <div>
+            <label for="nodeName">Nombre del nodo</label>
+            <input id="nodeName" value="${escapeAttribute(node.label)}" maxlength="18">
+          </div>
+        </div>
+      `, [
+        { text: "Eliminar", className: "danger", action: () => deleteNode(nodeId) },
+        { text: "Cancelar", className: "secondary", action: closeModal },
+        { text: "Guardar", className: "success", action: () => {
+          const value = document.getElementById("nodeName").value.trim();
+          if (!value) return alert("El nombre del nodo no puede estar vacío.");
+          node.label = value;
+          highlightedPath = null;
+          closeModal();
+          renderAll();
+        }}
+      ]);
+      document.getElementById("nodeName").focus();
+    }
+
+    function openCreateArcModal(fromId, toId) {
+      const from = findNode(fromId);
+      const to = findNode(toId);
+      if (!from || !to) return;
+      openModal(`Nuevo arco ${from.label} -> ${to.label}`, `
+        <div class="form-grid">
+          <div>
+            <label for="arcWeight">Peso del arco</label>
+            <input id="arcWeight" type="number" min="0" step="0.01" value="1">
+          </div>
+        </div>
+      `, [
+        { text: "Cancelar", className: "secondary", action: closeModal },
+        { text: "Crear arco", className: "success", action: () => {
+          const weight = readWeight("arcWeight");
+          if (weight === null) return;
+          addArc(fromId, toId, weight);
+          closeModal();
+        }}
+      ]);
+      document.getElementById("arcWeight").focus();
+    }
+
+    function openArcModal(arcId) {
+      const arc = arcs.find(item => item.id === arcId);
+      if (!arc) return;
+      const nodeOptions = nodes.map(node => `<option value="${node.id}">${escapeHtml(node.label)}</option>`).join("");
+      openModal("Editar arco", `
+        <div class="form-grid">
+          <div>
+            <label for="arcFrom">Nodo origen</label>
+            <select id="arcFrom">${nodeOptions}</select>
+          </div>
+          <div>
+            <label for="arcTo">Nodo destino</label>
+            <select id="arcTo">${nodeOptions}</select>
+          </div>
+          <div>
+            <label for="arcWeight">Peso del arco</label>
+            <input id="arcWeight" type="number" min="0" step="0.01" value="${arc.weight}">
+          </div>
+        </div>
+      `, [
+        { text: "Eliminar", className: "danger", action: () => deleteArc(arcId) },
+        { text: "Cancelar", className: "secondary", action: closeModal },
+        { text: "Guardar", className: "success", action: () => {
+          const weight = readWeight("arcWeight");
+          if (weight === null) return;
+          arc.from = document.getElementById("arcFrom").value;
+          arc.to = document.getElementById("arcTo").value;
+          arc.weight = weight;
+          highlightedPath = null;
+          closeModal();
+          renderAll();
+        }}
+      ]);
+      document.getElementById("arcFrom").value = arc.from;
+      document.getElementById("arcTo").value = arc.to;
+      document.getElementById("arcWeight").focus();
+    }
+
+    function openModal(title, body, actions) {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = body;
+      modalActions.innerHTML = "";
+      actions.forEach(action => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = action.text;
+        button.className = action.className || "";
+        button.addEventListener("click", action.action);
+        modalActions.append(button);
+      });
+      modalBackdrop.classList.add("open");
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove("open");
+      modalBody.innerHTML = "";
+      modalActions.innerHTML = "";
+      selected = null;
+      updateBadges();
+      renderGraph();
+    }
+
+    function deleteNode(nodeId) {
+      const node = findNode(nodeId);
+      if (!node || !confirm(`¿Eliminar el nodo ${node.label} y sus arcos conectados?`)) return;
+      pushHistory();
+      nodes = nodes.filter(item => item.id !== nodeId);
+      arcs = arcs.filter(arc => arc.from !== nodeId && arc.to !== nodeId);
+      selected = null;
+      highlightedPath = null;
+      renderAll();
+    }
+
+    function deleteArc(arcId) {
+      const arc = arcs.find(item => item.id === arcId);
+      if (!arc || !confirm("¿Eliminar este arco?")) return;
+      pushHistory();
+      arcs = arcs.filter(item => item.id !== arcId);
+      selected = null;
+      highlightedPath = null;
+      renderAll();
+    }
+
+    function readWeight(inputId) {
+      const value = Number(document.getElementById(inputId).value);
+      if (!Number.isFinite(value) || value < 0) {
+        alert("El peso debe ser un número mayor o igual a cero.");
+        return null;
+      }
+      return value;
+    }
+
+    function runDijkstra() {
+      if (!nodes.length) return alert("Agrega al menos un nodo.");
+      if (!arcs.length) return alert("Agrega al menos un arco con peso.");
+      const startId = startNodeSelect.value;
+      const endId = endNodeSelect.value;
+      if (!startId) return alert("Selecciona un nodo inicial.");
+
+      const dijkstra = calculateDijkstra(startId);
+      const targets = endId ? [endId] : nodes.filter(node => node.id !== startId).map(node => node.id);
+      const groups = targets.map(targetId => buildResultGroup(startId, targetId, dijkstra));
+      const reachableGroups = groups.filter(Boolean);
+
+      if (!reachableGroups.length) {
+        highlightedPath = null;
+        renderGraph();
+        resultsBody.innerHTML = "<p>No existen caminos dirigidos desde el nodo inicial hacia los destinos seleccionados.</p>";
+        return;
+      }
+
+      highlightedPath = reachableGroups[0].shortestPath;
+      renderGraph();
+      resultsBody.innerHTML = reachableGroups.map(group => group.html).join("");
+      document.querySelectorAll(".path-item").forEach(item => {
+        item.addEventListener("click", () => {
+          const pathIds = item.dataset.path.split(",");
+          highlightedPath = pathIds;
+          renderGraph();
+        });
+      });
+    }
+
+    function calculateDijkstra(startId) {
+      const distances = new Map();
+      const previous = new Map();
+      const unvisited = new Set(nodes.map(node => node.id));
+
+      nodes.forEach(node => {
+        distances.set(node.id, Infinity);
+        previous.set(node.id, null);
+      });
+      distances.set(startId, 0);
+
+      while (unvisited.size) {
+        let current = null;
+        let bestDistance = Infinity;
+        unvisited.forEach(nodeId => {
+          const distance = distances.get(nodeId);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            current = nodeId;
+          }
+        });
+        if (current === null) break;
+        unvisited.delete(current);
+        arcs.filter(arc => arc.from === current).forEach(arc => {
+          if (!unvisited.has(arc.to)) return;
+          const candidate = distances.get(current) + arc.weight;
+          if (candidate < distances.get(arc.to)) {
+            distances.set(arc.to, candidate);
+            previous.set(arc.to, current);
+          }
+        });
+      }
+
+      return { distances, previous };
+    }
+
+    function buildResultGroup(startId, targetId, dijkstra) {
+      const start = findNode(startId);
+      const target = findNode(targetId);
+      if (!start || !target) return null;
+      const allPaths = findAllPaths(startId, targetId);
+      if (!allPaths.length) return null;
+
+      const shortestPath = reconstructPath(startId, targetId, dijkstra.previous);
+      const shortestWeight = dijkstra.distances.get(targetId);
+      const sortedPaths = allPaths
+        .map(path => ({ path, weight: calculatePathWeight(path) }))
+        .sort((a, b) => a.weight - b.weight || a.path.length - b.path.length);
+
+      const list = sortedPaths.map((item, index) => {
+        const isShortest = samePath(item.path, shortestPath);
+        const label = item.path.map(id => findNode(id).label).join(" -> ");
+        const details = describePath(item.path);
+        const arcCountInPath = item.path.length - 1;
+        const lengthLabel = `${arcCountInPath} ${arcCountInPath === 1 ? "arco" : "arcos"}`;
+        return `
+          <div class="path-item ${isShortest ? "shortest" : ""}" data-path="${item.path.join(",")}">
+            <div class="path-title">
+              <span>${isShortest ? "Camino más corto" : `Camino ${index + 1}`}: ${escapeHtml(label)}</span>
+              <span>Peso total: ${formatNumber(item.weight)}</span>
+            </div>
+            <div class="path-detail">Longitud: ${lengthLabel}</div>
+            <div class="path-detail">${details}</div>
+          </div>
+        `;
+      }).join("");
+
+      return {
+        shortestPath,
+        html: `
+          <div class="result-group">
+            <h2>${escapeHtml(start.label)} hacia ${escapeHtml(target.label)}</h2>
+            <p>Se encontraron ${allPaths.length} camino(s) dirigido(s). Distancia mínima por Dijkstra: <strong>${formatNumber(shortestWeight)}</strong>.</p>
+            ${list}
+          </div>
+        `
+      };
+    }
+
+    function findAllPaths(startId, targetId) {
+      const paths = [];
+      const visited = new Set();
+      const currentPath = [];
+
+      function dfs(nodeId) {
+        visited.add(nodeId);
+        currentPath.push(nodeId);
+        if (nodeId === targetId) {
+          paths.push([...currentPath]);
+        } else {
+          arcs.filter(arc => arc.from === nodeId).forEach(arc => {
+            if (!visited.has(arc.to)) dfs(arc.to);
+          });
+        }
+        currentPath.pop();
+        visited.delete(nodeId);
+      }
+
+      dfs(startId);
+      return paths;
+    }
+
+    function reconstructPath(startId, targetId, previous) {
+      const path = [];
+      let current = targetId;
+      while (current) {
+        path.unshift(current);
+        if (current === startId) break;
+        current = previous.get(current);
+      }
+      return path[0] === startId ? path : [];
+    }
+
+    function calculatePathWeight(path) {
+      let total = 0;
+      for (let index = 0; index < path.length - 1; index++) {
+        const arc = arcs.find(item => item.from === path[index] && item.to === path[index + 1]);
+        total += arc ? arc.weight : 0;
+      }
+      return total;
+    }
+
+    function describePath(path) {
+      const pieces = [];
+      let accumulated = 0;
+      for (let index = 0; index < path.length - 1; index++) {
+        const from = findNode(path[index]);
+        const to = findNode(path[index + 1]);
+        const arc = arcs.find(item => item.from === from.id && item.to === to.id);
+        const previous = accumulated;
+        accumulated += arc.weight;
+        pieces.push(
+          `${escapeHtml(from.label)} -> ${escapeHtml(to.label)} pesa ${formatNumber(arc.weight)} ` +
+          `(<strong>${formatNumber(previous)} + ${formatNumber(arc.weight)} = ${formatNumber(accumulated)}</strong>)`
+        );
+      }
+      return pieces.join(" | ");
+    }
+
+    function getArcGeometry(from, to) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const ux = dx / length;
+      const uy = dy / length;
+      const normalX = -uy;
+      const normalY = ux;
+      const sameDirectionCount = arcs.filter(arc => arc.from === from.id && arc.to === to.id).length;
+      const oppositeCount = arcs.filter(arc => arc.from === to.id && arc.to === from.id).length;
+      const offset = sameDirectionCount > 1 || oppositeCount ? 14 : 0;
+      const x1 = from.x + ux * radius + normalX * offset;
+      const y1 = from.y + uy * radius + normalY * offset;
+      const x2 = to.x - ux * (radius + 7) + normalX * offset;
+      const y2 = to.y - uy * (radius + 7) + normalY * offset;
+      return {
+        x1,
+        y1,
+        x2,
+        y2,
+        mx: (x1 + x2) / 2 + normalX * 12,
+        my: (y1 + y2) / 2 + normalY * 12
+      };
+    }
+
+    function getArcState(arc) {
+      if (selected && selected.type === "arc" && selected.id === arc.id) return "selected";
+      if (!highlightedPath) return "";
+      for (let index = 0; index < highlightedPath.length - 1; index++) {
+        if (arc.from === highlightedPath[index] && arc.to === highlightedPath[index + 1]) {
+          return "shortest";
         }
       }
-
-      if(closest){
-        edges=edges.filter(e=>e!==closest);
-        dijResult=null;
-        draw();
-      }
-    }
-  }
-};
-
-cvs.onmousemove=e=>{
-  if(dragging){
-    const {x,y}=clientToCanvas(e);
-
-    dragging.x=x-dragOffX;
-    dragging.y=y-dragOffY;
-
-    draw();
-  }
-};
-
-cvs.onmouseup=()=>{
-  dragging=null;
-};
-
-function setMode(m){
-  mode=m;
-  edgeSrc=null;
-
-  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('btn-'+m).classList.add('active');
-
-  const hints={
-    node:'Haz clic en el lienzo para agregar nodos.',
-    edge:'Haz clic en nodo origen, luego en nodo destino.',
-    move:'Arrastra nodos para reposicionarlos.',
-    delete:'Haz clic en un nodo o arco para eliminarlo.'
-  };
-
-  const modes={
-    node:'Nodo',
-    edge:'Arco',
-    move:'Mover',
-    delete:'Eliminar'
-  };
-
-  setHint(hints[m]);
-  document.getElementById('mode-lbl').textContent='Modo: '+modes[m];
-
-  draw();
-}
-
-function setHint(t){
-  document.getElementById('hint').textContent=t;
-}
-
-function runDijkstra(){
-  if(nodes.length<2){
-    setHint('Agrega al menos 2 nodos.');
-    return;
-  }
-
-  const labels=nodes.map(n=>n.label).join(', ');
-  const src=prompt('Nodo inicial ('+labels+'):');
-  const srcLabel=src?.trim().toUpperCase();
-  const srcNode=nodes.find(n=>n.label.toUpperCase()===srcLabel);
-
-  if(!srcNode){
-    setHint('Nodo no encontrado.');
-    return;
-  }
-
-  const dest=prompt('Nodo final opcional ('+labels+'). Deja vacío para calcular a todos:');
-  const destLabel=dest?.trim().toUpperCase();
-  const destNode=destLabel?nodes.find(n=>n.label.toUpperCase()===destLabel):null;
-
-  if(destLabel&&!destNode){
-    setHint('Nodo final no encontrado.');
-    return;
-  }
-
-  const INF=Infinity;
-  const dist={},prev={};
-
-  for(const n of nodes){
-    dist[n.id]=INF;
-    prev[n.id]=null;
-  }
-
-  dist[srcNode.id]=0;
-
-  const unvisited=new Set(nodes.map(n=>n.id));
-
-  while(unvisited.size>0){
-    let u=null;
-
-    for(const id of unvisited){
-      if(u===null||dist[id]<dist[u])u=id;
+      return "";
     }
 
-    if(dist[u]===INF)break;
-
-    unvisited.delete(u);
-
-    for(const e of edges){
-      if(e.from!==u)continue;
-
-      const alt=dist[u]+e.w;
-
-      if(alt<dist[e.to]){
-        dist[e.to]=alt;
-        prev[e.to]=u;
-      }
-    }
-  }
-
-  const inPath=new Set([srcNode.id]);
-
-  dijResult={
-    source:srcNode.id,
-    dist,
-    prev,
-    visited:new Set(nodes.map(n=>n.id)),
-    inPath
-  };
-
-  function getPathTo(targetId){
-    const path=[];
-    let cur=targetId;
-
-    while(cur!==null&&cur!==undefined){
-      path.unshift(cur);
-      cur=prev[cur];
+    function getNodeState(node) {
+      if (selected && selected.type === "node" && selected.id === node.id) return "selected";
+      if (highlightedPath && highlightedPath.includes(node.id)) return "shortest";
+      return "";
     }
 
-    return path;
-  }
-
-  function getPathDetail(path){
-    if(path.length===1)return 'Costo total: 0';
-
-    const parts=[];
-    let total=0;
-
-    for(let i=0;i<path.length-1;i++){
-      const from=path[i];
-      const to=path[i+1];
-      const edge=edges.find(e=>e.from===from&&e.to===to);
-      const fromNode=nodes.find(n=>n.id===from);
-      const toNode=nodes.find(n=>n.id===to);
-
-      if(edge&&fromNode&&toNode){
-        total+=edge.w;
-        parts.push(`${fromNode.label} - ${toNode.label} (${edge.w})`);
-      }
+    function clearSelection() {
+      selected = null;
+      arcStartNodeId = null;
+      mode = "select";
+      addNodeBtn.classList.remove("active");
+      svg.classList.remove("placing-node");
+      arcButton.classList.remove("active");
+      selectedInfo.textContent = "Sin selección";
+      modeHint.textContent = DEFAULT_HINT;
+      renderAll();
     }
 
-    return parts.join(' + ')+' = '+total;
-  }
-
-  const targets=destNode?[destNode]:nodes.filter(n=>n.id!==srcNode.id);
-
-  let html='<div style="font-weight:600;margin-bottom:6px;color:#1a1a18">Rutas más cortas desde nodo <span style="color:#1D9E75">'+srcNode.label+'</span></div>';
-
-  for(const n of targets){
-    if(!destNode&&n.id===srcNode.id)continue;
-
-    const d=dist[n.id];
-
-    if(d===INF){
-      html+=`<div class="result-row"><span class="node-lbl">${n.label}</span><span class="dist-badge" style="color:#E24B4A">∞</span><span class="path-str">Sin camino</span></div>`;
-    }else{
-      const path=getPathTo(n.id);
-      const pathLabels=path.map(id=>nodes.find(nn=>nn.id===id)?.label).filter(Boolean);
-
-      for(const id of path)inPath.add(id);
-
-      html+=`<div class="result-row"><span class="node-lbl">${srcNode.label} → ${n.label}</span><span class="dist-badge">${d}</span><span class="path-str">Camino más corto: de ${srcNode.label} a ${n.label}: ${pathLabels.join(' - ')} | ${getPathDetail(path)}</span></div>`;
+    function findNode(id) {
+      return nodes.find(node => node.id === id);
     }
-  }
 
-  const res=document.getElementById('results');
+    function makeSvg(tag, attrs = {}) {
+      const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
+      return element;
+    }
 
-  res.innerHTML=html;
-  res.style.display='block';
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
 
-  draw();
+    function samePath(first, second) {
+      return first.length === second.length && first.every((item, index) => item === second[index]);
+    }
 
-  if(destNode){
-    setHint(
-      dist[destNode.id]===INF
-        ? 'No hay camino desde '+srcNode.label+' hasta '+destNode.label+'.'
-        : 'Camino más corto desde '+srcNode.label+' hasta '+destNode.label+': '+dist[destNode.id]+'.'
-    );
-  }else{
-    setHint('Resultado: '+Object.keys(dist).filter(id=>{
-      const n=nodes.find(x=>x.id==id);
-      return n&&n.id!==srcNode.id&&dist[id]!==INF;
-    }).length+' nodos alcanzados desde '+srcNode.label+'.');
-  }
-}
+    function formatNumber(value) {
+      return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
+    }
 
-function resetGraph(){
-  nodes=[];
-  edges=[];
-  nodeCounter=0;
-  dijResult=null;
-  edgeSrc=null;
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
 
-  document.getElementById('results').style.display='none';
+    function escapeAttribute(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
 
-  draw();
-  setHint('Lienzo limpio. Agrega nuevos nodos.');
-}
-
-function loadExample(){
-  resetGraph();
-
-  const W2=wrap.getBoundingClientRect().width;
-  const H2=wrap.getBoundingClientRect().height;
-  const cx2=W2/2;
-  const cy2=H2/2;
-
-  nodes=[
-    {id:0,x:cx2-220,y:cy2,label:'A'},
-    {id:1,x:cx2-80,y:cy2-110,label:'B'},
-    {id:2,x:cx2-80,y:cy2+110,label:'C'},
-    {id:3,x:cx2+80,y:cy2-110,label:'D'},
-    {id:4,x:cx2+80,y:cy2+110,label:'E'},
-    {id:5,x:cx2+220,y:cy2,label:'F'},
-    {id:6,x:cx2,y:cy2,label:'G'}
-  ];
-
-  nodeCounter=7;
-
-  edges=[
-    {from:0,to:1,w:10},{from:0,to:2,w:18},
-    {from:1,to:6,w:6},{from:1,to:4,w:3},
-    {from:2,to:3,w:3},{from:2,to:5,w:20},
-    {from:3,to:2,w:2},{from:3,to:6,w:2},
-    {from:4,to:3,w:6},{from:4,to:6,w:10},
-    {from:6,to:5,w:5},{from:6,to:2,w:10}
-  ];
-
-  dijResult=null;
-
-  document.getElementById('results').style.display='none';
-
-  draw();
-  setHint('Ejemplo cargado. Haz clic en Ejecutar y escribe "A" como nodo inicial.');
-}
-
-window.addEventListener('load',()=>{
-  resize();
-  setHint('Haz clic en el lienzo para agregar nodos.');
-});
-</script>
-
+    renderAll();
+  </script>
 </body>
 </html>
